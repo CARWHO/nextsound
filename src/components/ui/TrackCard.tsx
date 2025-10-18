@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './button';
 import { Card, CardContent } from './card';
 import {
   FaPlay,
   FaPause,
-  FaClock
+  FaClock,
+  FaArrowUp,
+  FaSpotify
 } from 'react-icons/fa';
 import { ITrack } from '@/types';
 import { getImageUrl, cn } from '@/utils';
+import { supabaseService } from '@/services/SupabaseService';
+import { useAudioPlayerContext } from '@/context/audioPlayerContext';
 
 interface TrackCardProps {
   track: ITrack;
@@ -21,24 +25,109 @@ interface TrackCardProps {
 export const TrackCard: React.FC<TrackCardProps> = ({
   track,
   category: _category,
-  isPlaying = false,
-  onPlay,
+  isPlaying: _isPlayingProp,
+  onPlay: _onPlayProp,
   variant = 'detailed',
   className
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isUpvoted, setIsUpvoted] = useState(false);
+  const [upvoteCount, setUpvoteCount] = useState(0);
+  const [isLoadingUpvote, setIsLoadingUpvote] = useState(false);
+
+  const { currentTrack, isPlaying: globalIsPlaying, playTrack } = useAudioPlayerContext();
 
   const { poster_path, original_title: title, name, artist, album, duration } = track;
   const displayTitle = title || name || 'Unknown Track';
+  const trackId = track.spotify_id || track.id;
+
+  // Check if this track is currently playing
+  const isPlaying = currentTrack?.id === track.id && globalIsPlaying;
+
+  // Fetch upvote count from Supabase on component mount
+  useEffect(() => {
+    const fetchUpvoteCount = async () => {
+      const upvoteData = await supabaseService.getUpvoteCount(trackId);
+      if (upvoteData) {
+        setUpvoteCount(upvoteData.upvote_count);
+      }
+      
+      // Check if user has upvoted this track (from localStorage)
+      const upvotedTracks = JSON.parse(localStorage.getItem('upvotedTracks') || '[]');
+      setIsUpvoted(upvotedTracks.includes(trackId));
+    };
+
+    fetchUpvoteCount();
+  }, [trackId]);
 
 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     console.log('🎯 TrackCard: Play button clicked for track:', track.name || track.original_title);
-    console.log('🎯 TrackCard: onPlay function available:', !!onPlay);
-    onPlay?.(track);
+    playTrack(track);
+  };
+
+  const handleUpvoteClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isLoadingUpvote) return; // Prevent multiple clicks
+
+    setIsLoadingUpvote(true);
+
+    try {
+      // Get upvoted tracks from localStorage
+      const upvotedTracks = JSON.parse(localStorage.getItem('upvotedTracks') || '[]');
+      
+      if (isUpvoted) {
+        // Remove upvote
+        const updatedData = await supabaseService.decrementUpvote(trackId);
+        if (updatedData) {
+          setUpvoteCount(updatedData.upvote_count);
+          setIsUpvoted(false);
+          
+          // Remove from localStorage
+          const newUpvotedTracks = upvotedTracks.filter((id: string) => id !== trackId);
+          localStorage.setItem('upvotedTracks', JSON.stringify(newUpvotedTracks));
+        }
+      } else {
+        // Add upvote
+        const updatedData = await supabaseService.incrementUpvote(trackId);
+        if (updatedData) {
+          setUpvoteCount(updatedData.upvote_count);
+          setIsUpvoted(true);
+          
+          // Add to localStorage
+          upvotedTracks.push(trackId);
+          localStorage.setItem('upvotedTracks', JSON.stringify(upvotedTracks));
+        }
+      }
+    } catch (error) {
+      console.error('Error handling upvote:', error);
+    } finally {
+      setIsLoadingUpvote(false);
+    }
+  };
+
+  const handleOpenSpotify = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!track.spotify_id) return;
+
+    // Try to open in Spotify app first, fallback to web player
+    const spotifyAppUrl = `spotify:track:${track.spotify_id}`;
+    const spotifyWebUrl = `https://open.spotify.com/track/${track.spotify_id}`;
+
+    // Attempt to open in app
+    window.location.href = spotifyAppUrl;
+
+    // Fallback to web player after a short delay
+    setTimeout(() => {
+      window.open(spotifyWebUrl, '_blank');
+    }, 500);
   };
 
 
@@ -123,7 +212,27 @@ export const TrackCard: React.FC<TrackCardProps> = ({
             </Button>
           </div>
 
-
+          {/* Open in Spotify button */}
+          {track.spotify_id && (
+            <div className={cn(
+              "absolute bottom-3 right-3 transition-all duration-300",
+              isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+            )}>
+              <Button
+                onClick={handleOpenSpotify}
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "w-10 h-10 rounded-full shadow-lg transition-all duration-200",
+                  "bg-[#1DB954] hover:bg-[#1ed760]",
+                  "hover:scale-110 text-white"
+                )}
+                aria-label="Open in Spotify"
+              >
+                <FaSpotify className="w-5 h-5" />
+              </Button>
+            </div>
+          )}
 
           {/* Playing indicator */}
           {isPlaying && (
@@ -139,6 +248,29 @@ export const TrackCard: React.FC<TrackCardProps> = ({
               </div>
             </div>
           )}
+
+          {/* Upvote button */}
+          <button
+            onClick={handleUpvoteClick}
+            className={cn(
+              "absolute top-3 right-3 flex flex-col items-center justify-center gap-0.5 px-2.5 py-1.5 rounded-lg backdrop-blur-sm transition-all duration-200 hover:scale-105 z-10",
+              isUpvoted
+                ? "bg-accent-orange/90 hover:bg-accent-orange"
+                : "bg-black/40 hover:bg-black/60"
+            )}
+            aria-label={isUpvoted ? "Remove upvote" : "Upvote track"}
+          >
+            <FaArrowUp className={cn(
+              "w-3.5 h-3.5 transition-colors",
+              isUpvoted ? "text-white" : "text-white/90"
+            )} />
+            <span className={cn(
+              "text-xs font-semibold transition-colors",
+              isUpvoted ? "text-white" : "text-white/90"
+            )}>
+              {upvoteCount}
+            </span>
+          </button>
         </div>
 
         {/* Track information */}

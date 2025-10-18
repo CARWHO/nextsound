@@ -127,4 +127,13 @@ export interface IArtist {
   };
 }
 
+// Supabase song upvotes interface
+export interface ISongUpvote {
+  id: string;
+  track_id: string;
+  upvote_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 
