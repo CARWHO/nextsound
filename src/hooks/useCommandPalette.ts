@@ -30,7 +30,6 @@ export interface Command {
 }
 
 interface UseCommandPaletteProps {
-  audioPlayer?: any;
   onItemSelect?: (item: SearchResult) => void;
   onClose?: () => void;
 }

@@ -20,7 +20,6 @@ interface CommandPaletteProps {
   isOpen?: boolean;
   onClose?: () => void;
   onItemSelect?: (item: SearchResult) => void;
-  audioPlayer?: any;
   className?: string;
 }
 
@@ -28,7 +27,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isOpen = false,
   onClose,
   onItemSelect,
-  audioPlayer,
   className
 }) => {
   const {
@@ -44,7 +42,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     error,
     handleItemSelect,
     clearHistory
-  } = useCommandPalette({ audioPlayer, onItemSelect, onClose });
+  } = useCommandPalette({ onItemSelect, onClose });
 
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);

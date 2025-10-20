@@ -7,7 +7,7 @@ import { ITrack } from "@/types";
 import { cn } from "@/utils/helper";
 import { useMotion } from "@/hooks/useMotion";
 
-const HeroSlide = ({ track, audioPlayer }: { track: ITrack; audioPlayer?: any }) => {
+const HeroSlide = ({ track }: { track: ITrack }) => {
   const { fadeDown, staggerContainer } = useMotion();
 
   const {
@@ -15,14 +15,6 @@ const HeroSlide = ({ track, audioPlayer }: { track: ITrack; audioPlayer?: any })
     original_title: title,
     poster_path: posterPath,
   } = track;
-
-  const handlePlayNow = () => {
-    if (audioPlayer?.playTrack) {
-      audioPlayer.playTrack(track);
-    } else {
-      console.log('Playing track:', title);
-    }
-  };
 
   return (
     <div
@@ -43,23 +35,6 @@ const HeroSlide = ({ track, audioPlayer }: { track: ITrack; audioPlayer?: any })
         <m.p variants={fadeDown} className={paragraph}>
           {overview.length > 180 ? `${overview.substring(0, 180)}...` : overview}
         </m.p>
-        <m.div
-          variants={fadeDown}
-          className="flex flex-row items-center  gap-4 sm:mt-6 xs:mt-5 mt-[18px] "
-        >
-          <button
-            type="button"
-            name="play-now"
-            className={cn(
-              watchBtn,
-              ` bg-[#ff0000] shadow-glow
-             text-shadow text-sec-color `
-            )}
-            onClick={handlePlayNow}
-          >
-            Play now
-          </button>
-        </m.div>
       </m.div>
 
       <Poster title={title} posterPath={posterPath} className="mr-auto" />
